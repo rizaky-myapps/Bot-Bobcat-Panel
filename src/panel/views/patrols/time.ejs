@@ -1,0 +1,25 @@
+<%- include('../partials/header') %>
+
+<div class="page-head">
+  <div class="breadcrumb">Semaine <%= board.week %> · du <%= fmt.day(board.range.start) %> au <%= fmt.day(new Date(board.range.end.getTime() - 86400000)) %></div>
+  <div class="actions">
+    <a class="btn" href="/temps?year=<%= prev.year %>&week=<%= prev.week %>">← S<%= prev.week %></a>
+    <% if (!isCurrent) { %><a class="btn" href="/temps">Semaine actuelle</a><% } %>
+    <a class="btn" href="/temps?year=<%= next.year %>&week=<%= next.week %>">S<%= next.week %> →</a>
+    <% if (perms.super) { %>
+      <form method="post" action="/temps/reset" class="inline" data-confirm="Réinitialiser TOUS les temps de la semaine <%= board.week %> ? Action irréversible.">
+        <%- include('../partials/csrf') %>
+        <input type="hidden" name="placeId" value="all"><input type="hidden" name="year" value="<%= board.year %>"><input type="hidden" name="week" value="<%= board.week %>">
+        <button class="btn danger" type="submit">♻️ Tout réinitialiser</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<p class="muted small" style="margin:-8px 0 0">Seules les patrouilles terminées sont comptées, dans la semaine ISO de leur début. <% if (isCurrent) { %>Actualisation automatique toutes les 30 secondes.<% } %></p>
+
+<div class="grid" <% if (isCurrent) { %>data-autorefresh="/temps?partial=1" data-interval="30000"<% } %>>
+  <%- include('_board') %>
+</div>
+
+<%- include('../partials/footer') %>

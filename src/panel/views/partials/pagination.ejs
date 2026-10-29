@@ -1,0 +1,9 @@
+<% if (pages > 1) { %>
+<div class="pagination">
+  <span>Page <%= page %> / <%= pages %> · <%= total %> résultat(s)</span>
+  <% if (page > 1) { %><a class="btn sm" href="<%= qs(base, { ...query, page: page - 1 }) %>">← Précédent</a><% } %>
+  <% if (page < pages) { %><a class="btn sm" href="<%= qs(base, { ...query, page: page + 1 }) %>">Suivant →</a><% } %>
+</div>
+<% } else if (total) { %>
+<div class="pagination"><span><%= total %> résultat(s)</span></div>
+<% } %>

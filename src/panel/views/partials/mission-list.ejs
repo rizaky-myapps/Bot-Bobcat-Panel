@@ -1,0 +1,39 @@
+<%# Liste commune ATM / convois. Paramètres : base, kind %>
+<div class="page-head">
+  <div class="breadcrumb"><%= title %> · <%= total %> résultat(s)</div>
+  <div class="actions">
+    <% for (const s of [['', 'Toutes'], ['OPEN', 'Ouvertes'], ['FINISHED', 'Terminées'], ['CANCELLED', 'Annulées']]) { %>
+      <a class="btn sm <%= (query.status || '') === s[0] ? 'primary' : 'ghost' %>" href="<%= qs(base, { status: s[0] }) %>"><%= s[1] %></a>
+    <% } %>
+    <% if (kind === 'convoi' && (perms.super || perms.convoi)) { %><a class="btn primary" href="/convois/nouveau">＋ Nouveau convoi</a><% } %>
+  </div>
+</div>
+
+<section class="card">
+  <% if (!missions.length) { %>
+    <div class="empty"><span class="big"><%= kind === 'atm' ? '📦' : '🚛' %></span><%= kind === 'atm' ? 'Aucune mission ATM. Elles se créent sur Discord avec /atm.' : 'Aucun convoi. Crée-en un ici ou avec /convoi sur Discord.' %></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Date</th><th>Heure</th><% if (kind === 'atm') { %><th>Fréquence</th><% } %><th>Responsable</th><th class="num">Dispo</th><th class="num">Dispatch</th><% if (kind === 'atm') { %><th class="num">PDS</th><% } %><th>Statut</th></tr>
+        </thead>
+        <tbody>
+          <% for (const m of missions) { %>
+            <tr>
+              <td class="nowrap"><a class="row-link" href="<%= base %>/<%= m._id %>"><%= fmt.day(m.scheduledAt) %></a></td>
+              <td class="num"><%= fmt.hm(m.scheduledAt) %></td>
+              <% if (kind === 'atm') { %><td><span class="badge plain info"><%= m.frequency %></span></td><% } %>
+              <td><%- include('member', { id: m.createdBy }) %></td>
+              <td class="num"><%= m.availability.filter((a) => a.status === 'AVAILABLE').length %></td>
+              <td class="num"><%= m.participants.length %></td>
+              <% if (kind === 'atm') { %><td class="num"><%= pdsCounts.get(String(m._id)) || 0 %></td><% } %>
+              <td><%- include('status', { status: m.status, feminine: kind === 'atm' }) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <%- include('pagination', { base }) %>
+</section>

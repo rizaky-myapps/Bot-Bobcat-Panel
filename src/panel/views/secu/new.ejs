@@ -1,0 +1,55 @@
+<%- include('../partials/header') %>
+
+<div class="page-head"><div class="breadcrumb"><a href="/secu">Sécurisations</a> · Nouvelle</div></div>
+
+<form class="grid grid-main" method="post" action="/secu/nouveau">
+  <%- include('../partials/csrf') %>
+  <section class="card">
+    <div class="card-header"><h2>🔒 Mission de sécurisation</h2></div>
+    <div class="card-body form-grid">
+      <% if (typeof error !== 'undefined' && error) { %><div class="alert error span-all"><%= error %></div><% } %>
+      <%- include('../partials/secu-fields', { values, channels, withChannel: true }) %>
+      <div class="field"><label for="capacity">Agents par créneau</label><input class="input" type="number" min="1" max="50" id="capacity" name="capacity" value="<%= values.capacity || 2 %>" required></div>
+      <div class="field span-2">
+        <label for="daysSpec">Jours</label>
+        <input class="input" id="daysSpec" name="daysSpec" value="<%= values.daysSpec || '' %>" required placeholder="17/08:3 ou 14/08,17/08">
+        <span class="hint"><code>17/08:3</code> = 3 jours à partir du 17/08 · <code>14/08,17/08</code> = jours précis</span>
+      </div>
+      <div class="field span-2">
+        <label for="template">Créneaux par défaut</label>
+        <input class="input" id="template" name="template" value="<%= values.template || '' %>" required placeholder="19h-23h/2h">
+        <span class="hint"><code>19h-00h</code> = 1 créneau · <code>19h-21h,21h-23h</code> = 2 créneaux · <code>19h-01h/2h</code> = découpage en 2 h</span>
+      </div>
+      <div class="field span-all">
+        <label for="planning">Exceptions (optionnel)</label>
+        <textarea class="input" id="planning" name="planning" placeholder="18/08=20h-23h&#10;19/08 off"><%= values.planning || '' %></textarea>
+        <span class="hint">Une ligne par jour : <code>18/08=20h-23h</code> remplace les créneaux, <code>19/08 off</code> retire le jour.</span>
+      </div>
+      <div class="form-actions span-all">
+        <button class="btn" type="submit" name="action" value="preview">👁️ Prévisualiser</button>
+        <button class="btn primary" type="submit" name="action" value="create">Créer et publier</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header"><h2>Aperçu des créneaux</h2></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+      <% if (!preview) { %>
+        <span class="muted">Clique sur « Prévisualiser » pour vérifier les jours et créneaux avant publication.</span>
+      <% } else { %>
+        <% for (const d of preview) { %>
+          <div class="preview-day">
+            <strong><%= fmt.longDate(d.date) %></strong>
+            <div class="chips" style="margin-top:6px">
+              <% for (const s of d.slots) { %><span class="chip text"><strong><%= s.label %></strong>&nbsp;<%= fmt.hm(s.startAt) %> → <%= fmt.hm(s.endAt) %> · <%= s.capacity %> pl.</span><% } %>
+            </div>
+          </div>
+        <% } %>
+        <span class="muted small"><%= preview.length %> jour(s), <%= preview.reduce((n, d) => n + d.slots.length, 0) %> créneau(x) au total.</span>
+      <% } %>
+    </div>
+  </section>
+</form>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,1 @@
+<% const _url = avatar(id); const _name = name(id); %><span class="chip" title="<%= _name %> (<%= id %>)"><% if (_url) { %><img src="<%= _url %>" alt="" loading="lazy"><% } else { %><span class="avatar-fallback"><%= _name.slice(0, 1).toUpperCase() %></span><% } %><%= _name %></span>

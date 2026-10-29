@@ -1,0 +1,119 @@
+<%- include('../partials/header') %>
+<% const canEdit = perms.super || perms.patrouille; const open = session.status === 'OPEN'; %>
+
+<div class="page-head">
+  <div class="breadcrumb"><a href="/patrouilles">Patrouilles</a> · <%= session.unit %></div>
+  <div class="actions">
+    <% if (session.messageId) { %><a class="btn" href="https://discord.com/channels/<%= session.guildId %>/<%= session.channelId %>/<%= session.messageId %>" target="_blank" rel="noopener">Voir sur Discord ↗</a><% } %>
+    <% if (perms.super) { %>
+      <form method="post" action="/patrouilles/<%= session._id %>/delete" class="inline" data-confirm="Supprimer définitivement cette patrouille ? Son temps sera retiré du suivi hebdomadaire.">
+        <%- include('../partials/csrf') %><button class="btn danger" type="submit">Supprimer</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <section class="card">
+    <div class="card-header">
+      <h2>📍 Lieux visités (<%= session.places.length %>)</h2>
+      <% if (session.status === 'FINISHED') { %><span class="muted small">Les corrections mettent à jour le temps hebdomadaire.</span><% } %>
+    </div>
+    <% if (!session.places.length) { %>
+      <div class="empty">Aucun lieu visité.</div>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Lieu</th><th>Arrivée</th><th>Départ</th><th>Raison</th><th class="num">Durée</th><% if (canEdit) { %><th></th><% } %></tr></thead>
+          <tbody>
+            <% for (const v of session.places) { const formId = `visit-${v._id}`; %>
+              <tr>
+                <td class="nowrap"><%- include('../partials/emoji', { value: v.emoji }) %> <strong><%= v.name %></strong></td>
+                <% if (canEdit) { %>
+                  <td><input form="<%= formId %>" class="input sm" type="datetime-local" name="arrivedAt" value="<%= fmt.dtLocal(v.arrivedAt) %>" required aria-label="Arrivée"></td>
+                  <td><input form="<%= formId %>" class="input sm" type="datetime-local" name="leftAt" value="<%= fmt.dtLocal(v.leftAt) %>" aria-label="Départ"></td>
+                  <td><input form="<%= formId %>" class="input sm" name="leaveReason" value="<%= v.leaveReason %>" maxlength="200" aria-label="Raison" style="min-width:150px"></td>
+                <% } else { %>
+                  <td class="num"><%= fmt.dateTime(v.arrivedAt) %></td>
+                  <td class="num"><%= v.leftAt ? fmt.dateTime(v.leftAt) : 'sur place' %></td>
+                  <td><%= v.leaveReason || '—' %></td>
+                <% } %>
+                <td class="num nowrap"><%= v.leftAt || session.endAt ? fmt.duration(visitMinutes(v, session.endAt)) : fmt.between(v.arrivedAt) %></td>
+                <% if (canEdit) { %>
+                  <td class="nowrap">
+                    <form id="<%= formId %>" method="post" action="/patrouilles/<%= session._id %>/visits/<%= v._id %>" class="inline">
+                      <%- include('../partials/csrf') %>
+                      <button class="btn sm" type="submit" name="action" value="save">Enregistrer</button>
+                      <button class="btn sm ghost" type="submit" name="action" value="delete" data-confirm="Supprimer ce passage ?" formnovalidate aria-label="Supprimer">🗑️</button>
+                    </form>
+                  </td>
+                <% } %>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+    <% if (canEdit) { %>
+      <div class="card-footer">
+        <form class="inline-form" method="post" action="/patrouilles/<%= session._id %>/visits">
+          <%- include('../partials/csrf') %>
+          <div class="field">
+            <label for="placeId">Ajouter un passage</label>
+            <select class="input" id="placeId" name="placeId" required>
+              <option value="">Choisir un lieu…</option>
+              <% for (const p of places) { %><option value="<%= p._id %>"><%= p.name %></option><% } %>
+            </select>
+          </div>
+          <div class="field"><label for="arrivedAt">Arrivée</label><input class="input" type="datetime-local" id="arrivedAt" name="arrivedAt" required></div>
+          <div class="field"><label for="leftAt">Départ</label><input class="input" type="datetime-local" id="leftAt" name="leftAt"></div>
+          <button class="btn" type="submit">Ajouter</button>
+        </form>
+      </div>
+    <% } %>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-header"><h2>Informations</h2><%- include('../partials/status', { status: session.status }) %></div>
+      <div class="card-body">
+        <dl class="info">
+          <dt>Date</dt><dd><%= session.dateLabel || fmt.longDate(session.startAt) %></dd>
+          <dt>Horaires</dt><dd class="num"><%= fmt.hm(session.startAt) %> → <%= session.endAt ? fmt.hm(session.endAt) : 'en cours' %></dd>
+          <dt>Durée</dt><dd><%= fmt.between(session.startAt, session.endAt) %></dd>
+          <dt>Agents</dt><dd><%- include('../partials/agents', { labels: session.agents }) %></dd>
+          <dt>Créée par</dt><dd><%- include('../partials/member', { id: session.authorId }) %></dd>
+          <% if (session.finishedBy) { %><dt>Terminée par</dt><dd><%- include('../partials/member', { id: session.finishedBy }) %></dd><% } %>
+          <dt>Interface</dt><dd><%= session.version === 'v2' ? 'Components v2' : 'Classique (embed)' %></dd>
+          <% if (open) { %><dt>Dernière action</dt><dd><%= fmt.relative(session.lastActivityAt) %></dd><% } %>
+          <% if (session.countedWeek?.week) { %><dt>Semaine comptée</dt><dd>S<%= session.countedWeek.week %> (<%= session.countedWeek.year %>)</dd><% } %>
+        </dl>
+      </div>
+    </section>
+
+    <% if (canEdit) { %>
+      <section class="card">
+        <div class="card-header"><h2>Modifier</h2></div>
+        <form class="card-body form-grid" method="post" action="/patrouilles/<%= session._id %>">
+          <%- include('../partials/csrf') %>
+          <div class="field span-all"><label for="unit">Unité</label><input class="input" id="unit" name="unit" value="<%= session.unit %>" maxlength="100" required></div>
+          <div class="field"><label for="startAt">Début</label><input class="input" type="datetime-local" id="startAt" name="startAt" value="<%= fmt.dtLocal(session.startAt) %>" required></div>
+          <% if (!open) { %><div class="field"><label for="endAt">Fin</label><input class="input" type="datetime-local" id="endAt" name="endAt" value="<%= fmt.dtLocal(session.endAt) %>" required></div><% } %>
+          <div class="form-actions span-all"><button class="btn" type="submit">Enregistrer</button></div>
+        </form>
+      </section>
+      <% if (open) { %>
+        <section class="card">
+          <div class="card-header"><h2>Terminer la patrouille</h2></div>
+          <form class="card-body inline-form" method="post" action="/patrouilles/<%= session._id %>/finish" data-confirm="Terminer cette patrouille ?">
+            <%- include('../partials/csrf') %>
+            <div class="field"><label for="endAtFinish">Heure de fin</label><input class="input" type="datetime-local" id="endAtFinish" name="endAt" value="<%= fmt.dtLocal(new Date()) %>"></div>
+            <button class="btn danger" type="submit">🛑 Terminer</button>
+          </form>
+        </section>
+      <% } %>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

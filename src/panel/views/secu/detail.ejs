@@ -1,0 +1,164 @@
+<%- include('../partials/header') %>
+<% const canEdit = perms.super || perms.secu; const now = new Date(); %>
+
+<div class="page-head">
+  <div class="breadcrumb"><a href="/secu">Sécurisations</a> · <%= mission.lieu %></div>
+  <div class="actions">
+    <% if (mission.headerMessageId) { %><a class="btn" href="https://discord.com/channels/<%= mission.guildId %>/<%= mission.channelId %>/<%= mission.headerMessageId %>" target="_blank" rel="noopener">Voir sur Discord ↗</a>
+    <% } else { %><span class="badge warn">En attente de publication par le bot</span><% } %>
+    <% if (canEdit) { %>
+      <form method="post" action="/secu/<%= mission._id %>/republish" class="inline"><%- include('../partials/csrf') %><button class="btn" type="submit">🔄 Resynchroniser Discord</button></form>
+    <% } %>
+    <% if (perms.super) { %>
+      <form method="post" action="/secu/<%= mission._id %>/delete" class="inline" data-confirm="Supprimer définitivement cette sécurisation et ses messages Discord ?"><%- include('../partials/csrf') %><button class="btn danger" type="submit">Supprimer</button></form>
+    <% } %>
+  </div>
+</div>
+
+<section class="kpis">
+  <div class="card kpi"><span class="kpi-label">📅 Jours</span><span class="kpi-value"><%= mission.days.length %></span></div>
+  <div class="card kpi"><span class="kpi-label">🕒 Créneaux</span><span class="kpi-value"><%= stats.slots %></span></div>
+  <div class="card kpi"><span class="kpi-label">👥 Places pourvues</span><span class="kpi-value"><%= stats.filled %> / <%= stats.capacity %></span><div class="meter <%= stats.filled >= stats.capacity ? '' : 'warn' %>"><span style="width:<%= stats.capacity ? Math.round(stats.filled / stats.capacity * 100) : 0 %>%"></span></div></div>
+  <div class="card kpi"><span class="kpi-label">📊 Statut</span><span class="kpi-value" style="font-size:18px"><%- include('../partials/status', { status: mission.status }) %></span></div>
+</section>
+
+<div class="grid grid-main">
+  <div class="grid">
+    <% for (const day of mission.days) { %>
+      <section class="card day-card" id="day-<%= day._id %>">
+        <div class="card-header">
+          <h2>📅 <%= fmt.longDate(day.date) %></h2>
+          <span class="muted small"><%= day.slots.length %> créneau(x)</span>
+          <% if (canEdit) { %>
+            <div class="actions">
+              <form method="post" action="/secu/<%= mission._id %>/days/<%= day._id %>/delete" class="inline" data-confirm="Supprimer ce jour et ses inscriptions ?"><%- include('../partials/csrf') %><button class="btn sm ghost" type="submit">🗑️ Supprimer le jour</button></form>
+            </div>
+          <% } %>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Équipe</th><th>Horaires</th><th class="num">Places</th><th>Inscrits</th><% if (canEdit) { %><th></th><% } %></tr></thead>
+            <tbody>
+              <% for (const slot of day.slots) { const formId = `slot-${slot._id}`; const ended = now >= new Date(slot.endAt); const full = slot.registrations.length >= slot.capacity; %>
+                <tr class="slot-row">
+                  <td class="nowrap"><strong><%= slot.label %></strong><% if (ended) { %> <span class="badge plain">terminé</span><% } else if (full) { %> <span class="badge ok">complet</span><% } %></td>
+                  <td class="nowrap">
+                    <% if (canEdit) { %>
+                      <input form="<%= formId %>" class="input sm time" name="start" value="<%= fmt.hmInput(slot.startAt) %>" required maxlength="5" aria-label="Début"> →
+                      <input form="<%= formId %>" class="input sm time" name="end" value="<%= fmt.hmInput(slot.endAt) %>" required maxlength="5" aria-label="Fin">
+                    <% } else { %><span class="num"><%= fmt.hm(slot.startAt) %> → <%= fmt.hm(slot.endAt) %></span><% } %>
+                  </td>
+                  <td class="num nowrap">
+                    <%= slot.registrations.length %> /
+                    <% if (canEdit) { %><input form="<%= formId %>" class="input sm" type="number" min="1" max="50" name="capacity" value="<%= slot.capacity %>" style="width:64px" aria-label="Capacité"><% } else { %><%= slot.capacity %><% } %>
+                  </td>
+                  <td>
+                    <div class="chips">
+                      <% if (!slot.registrations.length) { %><span class="muted small">Aucun inscrit</span><% } %>
+                      <% for (const r of slot.registrations) { %>
+                        <span class="chip">
+                          <% const url = avatar(r.userId); if (url) { %><img src="<%= url %>" alt=""><% } else { %><span class="avatar-fallback"><%= name(r.userId).slice(0, 1) %></span><% } %><%= name(r.userId) %>
+                          <% if (canEdit) { %><form method="post" action="/secu/<%= mission._id %>/days/<%= day._id %>/slots/<%= slot._id %>/registrations/<%= r.userId %>/delete"><%- include('../partials/csrf') %><button class="remove" type="submit" aria-label="Désinscrire">×</button></form><% } %>
+                        </span>
+                      <% } %>
+                    </div>
+                    <% if (canEdit) { %>
+                      <form class="nowrap-form" style="margin-top:6px" method="post" action="/secu/<%= mission._id %>/days/<%= day._id %>/slots/<%= slot._id %>/registrations">
+                        <%- include('../partials/csrf') %>
+                        <select class="input sm" name="userId" aria-label="Agent à inscrire" style="max-width:190px" required>
+                          <option value="">Inscrire un agent…</option>
+                          <% for (const m of memberList) { if (slot.registrations.some((r) => r.userId === m.userId)) continue; %><option value="<%= m.userId %>"><%= m.displayName || m.username %></option><% } %>
+                        </select>
+                        <button class="btn sm" type="submit">＋</button>
+                      </form>
+                    <% } %>
+                  </td>
+                  <% if (canEdit) { %>
+                    <td class="nowrap">
+                      <form id="<%= formId %>" method="post" action="/secu/<%= mission._id %>/days/<%= day._id %>/slots/<%= slot._id %>" class="inline">
+                        <%- include('../partials/csrf') %>
+                        <button class="btn sm" type="submit" name="action" value="save" title="Enregistrer les horaires et la capacité">💾</button>
+                        <button class="btn sm ghost" type="submit" name="action" value="delete" formnovalidate data-confirm="Supprimer <%= slot.label %> et ses inscriptions ?" title="Supprimer le créneau" aria-label="Supprimer">🗑️</button>
+                      </form>
+                    </td>
+                  <% } %>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% if (canEdit && day.slots.length < maxSlots) { %>
+          <div class="card-footer">
+            <form class="inline-form" method="post" action="/secu/<%= mission._id %>/days/<%= day._id %>/slots">
+              <%- include('../partials/csrf') %>
+              <div class="field" style="flex:0 1 100px"><label>Début</label><input class="input sm" name="start" required maxlength="5" placeholder="19h"></div>
+              <div class="field" style="flex:0 1 100px"><label>Fin</label><input class="input sm" name="end" required maxlength="5" placeholder="21h"></div>
+              <div class="field" style="flex:0 1 90px"><label>Places</label><input class="input sm" type="number" min="1" max="50" name="capacity" value="<%= mission.capacity %>"></div>
+              <button class="btn sm" type="submit">＋ Ajouter un créneau</button>
+            </form>
+          </div>
+        <% } %>
+      </section>
+    <% } %>
+    <% if (!mission.days.length) { %><section class="card empty">Aucun jour planifié.</section><% } %>
+
+    <% if (canEdit) { %>
+      <section class="card">
+        <div class="card-header"><h2>＋ Ajouter un jour</h2></div>
+        <form class="card-body inline-form" method="post" action="/secu/<%= mission._id %>/days">
+          <%- include('../partials/csrf') %>
+          <div class="field" style="flex:0 1 170px"><label for="newDate">Date</label><input class="input" type="date" id="newDate" name="date" required></div>
+          <div class="field"><label for="newRanges">Créneaux</label><input class="input" id="newRanges" name="ranges" value="<%= mission.template %>" required placeholder="19h-23h/2h"></div>
+          <div class="field" style="flex:0 1 100px"><label for="newCapacity">Places</label><input class="input" type="number" min="1" max="50" id="newCapacity" name="capacity" value="<%= mission.capacity %>"></div>
+          <button class="btn" type="submit">Ajouter</button>
+        </form>
+      </section>
+    <% } %>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-header"><h2>Informations</h2></div>
+      <% if (canEdit) { %>
+        <form class="card-body form-grid" method="post" action="/secu/<%= mission._id %>">
+          <%- include('../partials/csrf') %>
+          <%- include('../partials/secu-fields', { values: mission, channels, withChannel: false }) %>
+          <div class="field span-all"><span class="label">Salon des inscriptions</span><span><%= channelName(mission.channelId) %></span></div>
+          <div class="form-actions span-all"><button class="btn" type="submit">Enregistrer</button></div>
+        </form>
+      <% } else { %>
+        <div class="card-body">
+          <dl class="info">
+            <dt>Tenue</dt><dd><%= SECU_TENUES[mission.tenue] || mission.tenue %></dd>
+            <dt>Véhicule</dt><dd><%= mission.vehicule === 'custom' ? mission.vehiculeCustom : SECU_VEHICULES[mission.vehicule] %></dd>
+            <dt>Radio</dt><dd><%= SECU_RADIOS[mission.radio] || mission.radio %></dd>
+            <dt>Brief TEAM 1</dt><dd><%= mission.briefOffset ? `${mission.briefOffset} min avant` : 'Au début' %></dd>
+            <dt>Salons</dt><dd><%= channelName(mission.channelId) %><%= mission.pdsChannelId ? ` · rappels ${channelName(mission.pdsChannelId)}` : '' %></dd>
+          </dl>
+        </div>
+      <% } %>
+      <div class="card-footer small muted">Créée par <%= name(mission.createdBy) %> le <%= fmt.dateTime(mission.createdAt) %></div>
+    </section>
+
+    <% if (canEdit) { %>
+      <section class="card">
+        <div class="card-header"><h2>Statut</h2></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+          <% if (mission.status === 'OPEN') { %>
+            <form method="post" action="/secu/<%= mission._id %>/status" data-confirm="Clôturer cette sécurisation ?"><%- include('../partials/csrf') %><input type="hidden" name="status" value="FINISHED"><button class="btn" type="submit">🏁 Clôturer</button></form>
+            <form class="form-grid" method="post" action="/secu/<%= mission._id %>/status" data-confirm="Annuler cette sécurisation ?">
+              <%- include('../partials/csrf') %><input type="hidden" name="status" value="CANCELLED">
+              <div class="field span-all"><label for="reason">Raison</label><input class="input" id="reason" name="reason" maxlength="300"></div>
+              <label class="check span-all"><input type="checkbox" name="notify" checked> Prévenir les agents inscrits</label>
+              <div class="form-actions span-all"><button class="btn danger" type="submit">✖️ Annuler</button></div>
+            </form>
+          <% } else { %>
+            <form method="post" action="/secu/<%= mission._id %>/status"><%- include('../partials/csrf') %><input type="hidden" name="status" value="OPEN"><button class="btn" type="submit">↩️ Rouvrir</button></form>
+          <% } %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

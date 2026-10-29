@@ -1,0 +1,102 @@
+<%- include('partials/header', { scripts: ['/vendor/chart.js/chart.umd.js', '/static/js/charts.js'] }) %>
+<% const levels = (v) => (v ? Math.max(1, Math.ceil((v / heatMax) * 6)) : 0);
+   const agentName = (key) => key.startsWith('id:') ? name(key.slice(3)) : key.startsWith('mat:') ? `Matricule ${key.slice(4)}` : name(key); %>
+
+<form class="filters" method="get" action="/stats">
+  <div class="field">
+    <label for="semaines">Période</label>
+    <select class="input" id="semaines" name="semaines">
+      <% for (const n of [4, 8, 12, 26]) { %><option value="<%= n %>" <%= weeksCount === n ? 'selected' : '' %>><%= n %> dernières semaines</option><% } %>
+    </select>
+  </div>
+  <button class="btn" type="submit">Afficher</button>
+</form>
+
+<section class="kpis">
+  <div class="card kpi"><span class="kpi-label">⏱️ Heures de patrouille</span><span class="kpi-value"><%= fmt.duration(totalMinutes) %></span><span class="kpi-sub">sur <%= weeksCount %> semaines</span></div>
+  <div class="card kpi"><span class="kpi-label">🛡️ Patrouilles</span><span class="kpi-value"><%= patrolCount %></span><span class="kpi-sub"><%= weeksCount ? (patrolCount / weeksCount).toFixed(1).replace('.', ',') : 0 %> par semaine</span></div>
+  <div class="card kpi"><span class="kpi-label">📦 Missions ATM</span><span class="kpi-value"><%= atmCounts.FINISHED + atmCounts.OPEN + atmCounts.CANCELLED %></span><span class="kpi-sub"><%= atmCounts.FINISHED %> terminées · <%= atmCounts.CANCELLED %> annulées</span></div>
+  <div class="card kpi"><span class="kpi-label">🚛 Convois</span><span class="kpi-value"><%= convoiCounts.FINISHED + convoiCounts.OPEN + convoiCounts.CANCELLED %></span><span class="kpi-sub"><%= convoiCounts.FINISHED %> terminés · <%= convoiCounts.CANCELLED %> annulés</span></div>
+</section>
+
+<div class="grid grid-2">
+  <section class="card">
+    <div class="card-header"><h2>Heures de patrouille par semaine</h2></div>
+    <div class="card-body"><div class="chart-box"><canvas id="weeklyChart" role="img" aria-label="Heures de patrouille par semaine"></canvas></div></div>
+    <details class="table-view">
+      <summary>Voir le tableau</summary>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Semaine</th><th class="num">Temps</th></tr></thead><tbody>
+        <% for (const w of weekly) { %><tr><td>S<%= w.week %> <%= w.year %></td><td class="num"><%= fmt.duration(w.totalMinutes) %></td></tr><% } %>
+      </tbody></table></div>
+    </details>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>Heures par lieu sur la période</h2></div>
+    <div class="card-body">
+      <% if (!placeTotals.length) { %><div class="empty">Aucune patrouille terminée sur la période.</div><% } else { %>
+        <div class="chart-box" style="height:<%= Math.max(160, placeTotals.length * 30 + 40) %>px"><canvas id="placesChart" role="img" aria-label="Heures par lieu"></canvas></div>
+      <% } %>
+    </div>
+    <details class="table-view">
+      <summary>Voir le tableau</summary>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Lieu</th><th class="num">Temps</th></tr></thead><tbody>
+        <% for (const p of placeTotals) { %><tr><td><%= p._id %></td><td class="num"><%= fmt.duration(p.total) %></td></tr><% } %>
+      </tbody></table></div>
+    </details>
+  </section>
+</div>
+
+<script type="application/json" id="stats-data"><%- JSON.stringify({
+  weekly: weekly.map((w) => ({ label: `S${w.week}`, hours: Math.round((w.totalMinutes / 60) * 10) / 10 })),
+  places: placeTotals.map((p) => ({ label: p._id || 'Lieu supprimé', hours: Math.round((p.total / 60) * 10) / 10 })),
+}).replace(/</g, '\\u003c') %></script>
+
+<div class="grid grid-3">
+  <section class="card">
+    <div class="card-header"><h2>🛡️ Agents en patrouille</h2></div>
+    <% if (!topPatrol.length) { %><div class="empty">Aucune donnée.</div><% } else { const max = topPatrol[0].minutes || 1; %>
+      <div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Agent</th><th class="num">Patrouilles</th><th class="num">Temps</th></tr></thead><tbody>
+        <% topPatrol.forEach((e, i) => { %>
+          <tr><td><span class="rank"><%= i + 1 %></span></td><td><%= agentName(e.key) %><div class="meter series" style="margin-top:4px;height:4px"><span style="width:<%= Math.round(e.minutes / max * 100) %>%"></span></div></td><td class="num"><%= e.count %></td><td class="num nowrap"><%= fmt.duration(e.minutes) %></td></tr>
+        <% }) %>
+      </tbody></table></div>
+    <% } %>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>📦 Participation aux missions</h2></div>
+    <% if (!topMissions.length) { %><div class="empty">Aucune donnée.</div><% } else { %>
+      <div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Agent</th><th class="num">Dispatché</th><th class="num">Dispo ✅</th></tr></thead><tbody>
+        <% topMissions.forEach((e, i) => { %><tr><td><span class="rank"><%= i + 1 %></span></td><td><%= agentName(e.key) %></td><td class="num"><%= e.dispatched %></td><td class="num"><%= e.available %></td></tr><% }) %>
+      </tbody></table></div>
+    <% } %>
+    <div class="card-footer small muted">ATM et convois, classés par nombre de dispatchs.</div>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>🔒 Créneaux de sécurisation</h2></div>
+    <% if (!topSecu.length) { %><div class="empty">Aucune donnée.</div><% } else { %>
+      <div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Agent</th><th class="num">Créneaux</th><th class="num">Temps</th></tr></thead><tbody>
+        <% topSecu.forEach((e, i) => { %><tr><td><span class="rank"><%= i + 1 %></span></td><td><%= agentName(e.key) %></td><td class="num"><%= e.slots %></td><td class="num nowrap"><%= fmt.duration(e.minutes) %></td></tr><% }) %>
+      </tbody></table></div>
+    <% } %>
+  </section>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <h2>Disponibilités par jour et heure</h2>
+    <span class="muted small">Réactions ✅ sur les missions ATM et convois, selon l'horaire de la mission</span>
+    <div class="actions heat-legend" aria-hidden="true">Moins <% for (let i = 0; i <= 6; i++) { %><span class="cell" style="background:var(--heat-<%= i %>)"></span><% } %> Plus</div>
+  </div>
+  <div class="card-body table-wrap">
+    <div class="heatmap" role="table" aria-label="Disponibilités par jour et heure">
+      <span></span>
+      <% for (let h = 0; h < 24; h++) { %><span class="col-label"><%= h % 3 === 0 ? `${h}h` : '' %></span><% } %>
+      <% heat.forEach((row, d) => { %>
+        <span class="row-label"><%= dayNames[d] %></span>
+        <% row.forEach((v, h) => { %><span class="cell" data-level="<%= levels(v) %>" title="<%= dayNames[d] %> <%= h %>h : <%= v %> disponibilité(s)"></span><% }) %>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer', { scripts: ['/vendor/chart.js/chart.umd.js', '/static/js/charts.js'] }) %>

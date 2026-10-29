@@ -1,0 +1,2 @@
+<%# Affiche la liste des agents d'une patrouille : mentions → membres, sinon matricule. %>
+<span class="chips"><% for (const label of labels) { const m = String(label).match(/^<@!?(\d+)>$/); if (m) { %><%- include('member', { id: m[1] }) %><% } else { %><span class="chip text"><%= label %></span><% } } %></span>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title ? `${title} · ` : '' %>Bobcat Panel</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+  <script src="/static/js/theme.js"></script>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<%
+  const nav = [
+    { section: 'Général' },
+    { href: '/', icon: '📊', label: 'Tableau de bord', exact: true },
+    { section: 'Patrouilles' },
+    { href: '/patrouilles', icon: '🛡️', label: 'Historique' },
+    { href: '/temps', icon: '⏱️', label: 'Temps hebdo' },
+    { href: '/lieux', icon: '📍', label: 'Lieux' },
+    { section: 'Missions' },
+    { href: '/atm', icon: '📦', label: 'Missions ATM' },
+    { href: '/pds', icon: '📋', label: 'Prises de service' },
+    { href: '/convois', icon: '🚛', label: 'Convois' },
+    { href: '/secu', icon: '🔒', label: 'Sécurisations' },
+    { section: 'Pilotage' },
+    { href: '/stats', icon: '📈', label: 'Statistiques' },
+    { href: '/journal', icon: '🧾', label: 'Journal' },
+  ];
+  if (perms.super) nav.push({ href: '/parametres', icon: '⚙️', label: 'Paramètres' });
+  const isActive = (item) => item.exact ? currentPath === item.href : currentPath === item.href || currentPath.startsWith(item.href + '/');
+%>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="/">
+      <span class="brand-mark">🐾</span>
+      <span>Bobcat Panel<small><%= BRAND_NAME %></small></span>
+    </a>
+    <nav>
+      <% for (const item of nav) { %>
+        <% if (item.section) { %>
+          <div class="nav-section"><%= item.section %></div>
+        <% } else { %>
+          <a class="nav-link<%= isActive(item) ? ' active' : '' %>" href="<%= item.href %>"<%- isActive(item) ? ' aria-current="page"' : '' %>>
+            <span class="icon" aria-hidden="true"><%= item.icon %></span><%= item.label %>
+          </a>
+        <% } %>
+      <% } %>
+    </nav>
+    <div class="sidebar-foot">
+      <% if (guild?.iconUrl) { %><img src="<%= guild.iconUrl %>" alt=""><% } %>
+      <span><%= guild?.name || 'Serveur non synchronisé' %></span>
+    </div>
+  </aside>
+  <div class="backdrop"></div>
+  <div class="main">
+    <header class="topbar">
+      <button class="btn icon ghost menu-btn" type="button" data-menu-toggle aria-label="Menu">☰</button>
+      <h1><%= title %></h1>
+      <div class="topbar-right">
+        <button class="btn icon ghost" type="button" data-theme-toggle aria-label="Changer de thème">🌙</button>
+        <div class="user-chip">
+          <% if (user?.avatarUrl) { %><img src="<%= user.avatarUrl %>" alt=""><% } else { %><span class="avatar-fallback"><%= (user?.displayName || '?').slice(0, 1).toUpperCase() %></span><% } %>
+          <span class="user-name"><%= user?.displayName %><% if (perms.super) { %> <span class="badge accent plain">Super-user</span><% } %></span>
+        </div>
+        <form method="post" action="/logout" class="inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn sm ghost" type="submit">Déconnexion</button>
+        </form>
+      </div>
+    </header>
+    <main class="content">
+      <% if (flash) { %>
+        <div class="alert <%= flash.type %>" role="status"><%= flash.text %></div>
+      <% } %>

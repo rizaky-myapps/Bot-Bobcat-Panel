@@ -1,0 +1,72 @@
+<%- include('../partials/header') %>
+<% const canEdit = perms.super || perms.pds; %>
+
+<div class="page-head">
+  <div class="breadcrumb"><a href="/pds">Prises de service</a> · <%= pds.plate %></div>
+  <div class="actions">
+    <% if (pds.messageId) { %><a class="btn" href="https://discord.com/channels/<%= pds.guildId %>/<%= pds.channelId %>/<%= pds.messageId %>" target="_blank" rel="noopener">Voir sur Discord ↗</a><% } %>
+    <% if (canEdit && pds.status === 'OPEN') { %>
+      <form method="post" action="/pds/<%= pds._id %>/finish" class="inline" data-confirm="Terminer cette PDS ?">
+        <%- include('../partials/csrf') %><button class="btn danger" type="submit">🛑 Terminer la PDS</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <section class="card">
+    <div class="card-header"><h2>🏧 ATM effectués (<%= pds.atms.length %>)</h2></div>
+    <% if (!pds.atms.length) { %>
+      <div class="empty">Aucun ATM enregistré. Ils s'ajoutent sur Discord avec le bouton « Ajouter un ATM ».</div>
+    <% } else { %>
+      <ul class="list">
+        <% pds.atms.forEach((a, i) => { %>
+          <li class="list-item" style="align-items:flex-start;flex-wrap:wrap">
+            <span class="rank"><%= i + 1 %></span>
+            <span class="grow">
+              <span class="title"><%= a.label %></span>
+              <span class="meta"><%= fmt.hm(a.at) %> · ajouté par <%= name(a.addedBy) %><%= a.note ? ` · ${a.note}` : '' %></span>
+              <% if (a.photos?.length) { %>
+                <div class="gallery" style="margin-top:8px">
+                  <% for (const p of a.photos) { %><a href="<%= p.url %>" target="_blank" rel="noopener"><img src="<%= p.url %>" alt="Photo de <%= a.label %>" loading="lazy"></a><% } %>
+                </div>
+              <% } %>
+            </span>
+            <% if (canEdit) { %>
+              <form method="post" action="/pds/<%= pds._id %>/atms/<%= a._id %>/delete" class="inline" data-confirm="Supprimer cet ATM de la PDS ?">
+                <%- include('../partials/csrf') %><button class="btn sm ghost" type="submit" aria-label="Supprimer">🗑️</button>
+              </form>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-header"><h2>Informations</h2><%- include('../partials/status', { status: pds.status }) %></div>
+      <div class="card-body">
+        <dl class="info">
+          <dt>Véhicule</dt><dd><strong><%= pds.plate %></strong></dd>
+          <dt>Mission</dt><dd><% if (mission) { %><a class="link" href="/atm/<%= mission._id %>"><%= fmt.day(mission.scheduledAt) %> <%= fmt.hm(mission.scheduledAt) %> · <%= mission.frequency %></a><% } else { %><span class="muted">Introuvable</span><% } %></dd>
+          <dt>Horaires</dt><dd class="num"><%= fmt.hm(pds.startAt) %> → <%= pds.endAt ? fmt.hm(pds.endAt) : 'en cours' %> (<%= fmt.between(pds.startAt, pds.endAt) %>)</dd>
+          <dt>Ouverte par</dt><dd><%- include('../partials/member', { id: pds.createdBy }) %></dd>
+          <% if (pds.finishedBy) { %><dt>Terminée par</dt><dd><%- include('../partials/member', { id: pds.finishedBy }) %></dd><% } %>
+        </dl>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-header"><h2>👮 Équipage (<%= participants.length %>)</h2></div>
+      <% if (!participants.length) { %><div class="empty">Aucun agent dispatché sur la mission.</div><% } else { %>
+        <ul class="list">
+          <% for (const p of participants) { %>
+            <li class="list-item"><span class="grow"><%- include('../partials/member', { id: p.userId }) %><div class="meta" style="margin-top:4px"><%= p.roles.map((k) => roleLabel(k, ATM_ROLES)).join(' · ') || 'Sans rôle' %></div></span></li>
+          <% } %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

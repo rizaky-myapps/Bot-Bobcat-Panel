@@ -1,0 +1,173 @@
+<%# Détail commun ATM / convois. Paramètres : base, kind, mission, roles, agentIds, memberList %>
+<% const canEdit = (perms.super || perms[kind]) && mission.status === 'OPEN'; const canStatus = perms.super || perms[kind];
+   const available = mission.availability.filter((a) => a.status === 'AVAILABLE');
+   const unavailable = mission.availability.filter((a) => a.status === 'UNAVAILABLE');
+   const rolesOf = (id) => mission.participants.find((p) => p.userId === id)?.roles || []; %>
+
+<div class="page-head">
+  <div class="breadcrumb"><a href="<%= base %>"><%= kind === 'atm' ? 'Missions ATM' : 'Convois' %></a> · <%= fmt.day(mission.scheduledAt) %> à <%= fmt.hm(mission.scheduledAt) %></div>
+  <div class="actions">
+    <% if (mission.messageId) { %><a class="btn" href="https://discord.com/channels/<%= mission.guildId %>/<%= mission.channelId %>/<%= mission.messageId %>" target="_blank" rel="noopener">Voir sur Discord ↗</a>
+    <% } else { %><span class="badge warn">En attente de publication par le bot</span><% } %>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <div class="grid">
+    <section class="card">
+      <div class="card-header">
+        <h2>🧩 Dispatch (<%= mission.participants.length %>)</h2>
+        <% if (!canEdit) { %><span class="muted small"><%= mission.status === 'OPEN' ? 'Lecture seule' : 'Mission clôturée' %></span><% } %>
+      </div>
+      <% if (!agentIds.length && !canEdit) { %>
+        <div class="empty">Aucun agent disponible ni dispatché.</div>
+      <% } else { %>
+        <form method="post" action="<%= base %>/<%= mission._id %>/dispatch">
+          <%- include('csrf') %>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Agent</th><th>Dispo</th><% for (const r of roles) { %><th title="<%= r.label %>" class="role-col"><%= r.emoji.startsWith('<') ? '' : r.emoji %><br><span class="hide-mobile"><%= r.label %></span></th><% } %></tr></thead>
+              <tbody>
+                <% if (!agentIds.length) { %>
+                  <tr><td colspan="<%= roles.length + 2 %>" class="muted">Aucun agent disponible pour le moment — ajoute un agent ci-dessous.</td></tr>
+                <% } %>
+                <% for (const id of agentIds) { const has = rolesOf(id); const a = mission.availability.find((x) => x.userId === id); %>
+                  <tr>
+                    <td><%- include('member', { id }) %></td>
+                    <td><%- a?.status === 'AVAILABLE' ? '<span class="badge ok plain">✅</span>' : a?.status === 'UNAVAILABLE' ? '<span class="badge danger plain">❌</span>' : '<span class="muted">—</span>' %></td>
+                    <% for (const r of roles) { %>
+                      <td class="center"><label class="check"><input type="checkbox" name="roles[<%= id %>]" value="<%= r.key %>" <%= has.includes(r.key) ? 'checked' : '' %> <%= canEdit ? '' : 'disabled' %> aria-label="<%= r.label %> pour <%= name(id) %>"></label></td>
+                    <% } %>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+          <% if (canEdit) { %>
+            <div class="card-footer">
+              <div class="inline-form">
+                <div class="field" style="flex:1 1 220px">
+                  <label for="addUser">Ajouter un agent</label>
+                  <select class="input" id="addUser" name="addUser">
+                    <option value="">—</option>
+                    <% for (const m of memberList) { if (agentIds.includes(m.userId)) continue; %><option value="<%= m.userId %>"><%= m.displayName || m.username %></option><% } %>
+                  </select>
+                </div>
+                <div class="field" style="flex:2 1 300px">
+                  <span class="label">Rôles du nouvel agent</span>
+                  <div class="chips">
+                    <% for (const r of roles) { %><label class="check chip text"><input type="checkbox" name="addRoles" value="<%= r.key %>"> <%= r.label %></label><% } %>
+                  </div>
+                </div>
+              </div>
+              <div class="form-actions" style="margin-top:12px">
+                <button class="btn primary" type="submit">Enregistrer le dispatch</button>
+                <span class="muted small">Décocher tous les rôles d'un agent le retire du dispatch.</span>
+              </div>
+            </div>
+          <% } %>
+        </form>
+      <% } %>
+    </section>
+
+    <section class="card">
+      <div class="card-header"><h2>Disponibilités</h2><span class="muted small">Réactions ✅ / ❌ sur le message Discord</span></div>
+      <div class="card-body grid grid-2">
+        <% for (const group of [{ title: `✅ Disponibles (${available.length})`, list: available }, { title: `❌ Indisponibles (${unavailable.length})`, list: unavailable }]) { %>
+          <div>
+            <h3 style="margin-bottom:8px"><%= group.title %></h3>
+            <% if (!group.list.length) { %><span class="muted small">Personne</span><% } %>
+            <div class="chips">
+              <% for (const a of group.list) { %>
+                <span class="chip" title="<%= fmt.dateTime(a.at) %>">
+                  <% const url = avatar(a.userId); if (url) { %><img src="<%= url %>" alt=""><% } else { %><span class="avatar-fallback"><%= name(a.userId).slice(0, 1) %></span><% } %><%= name(a.userId) %>
+                  <% if (canStatus && mission.status === 'OPEN') { %>
+                    <form method="post" action="<%= base %>/<%= mission._id %>/availability/<%= a.userId %>/delete"><%- include('csrf') %><button class="remove" type="submit" aria-label="Retirer">×</button></form>
+                  <% } %>
+                </span>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <% if (kind === 'atm') { %>
+      <section class="card">
+        <div class="card-header"><h2>📋 Prises de service (<%= pds.length %>)</h2></div>
+        <% if (!pds.length) { %><div class="empty">Aucune PDS. Elles se lancent sur Discord avec <code>/pds</code>.</div><% } else { %>
+          <ul class="list">
+            <% for (const p of pds) { %>
+              <li><a class="list-item" href="/pds/<%= p._id %>"><span class="item-icon">🚙</span><span class="grow"><span class="title"><%= p.plate %></span><span class="meta"><%= fmt.hm(p.startAt) %> → <%= p.endAt ? fmt.hm(p.endAt) : 'en cours' %> · <%= p.atms.length %> ATM</span></span><%- include('status', { status: p.status }) %></a></li>
+            <% } %>
+          </ul>
+        <% } %>
+      </section>
+    <% } %>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-header"><h2>Informations</h2><%- include('status', { status: mission.status, feminine: kind === 'atm' }) %></div>
+      <div class="card-body">
+        <dl class="info">
+          <dt>Date</dt><dd><%= fmt.longDate(mission.scheduledAt) %></dd>
+          <dt>Heure</dt><dd><%= fmt.hm(mission.scheduledAt) %> · <%= fmt.relative(mission.scheduledAt) %></dd>
+          <% if (kind === 'atm') { %><dt>Fréquence</dt><dd><span class="badge info plain"><%= mission.frequency %></span></dd><% } %>
+          <% if (kind === 'atm' && mission.mentionRoleId) { %><dt>Rôle mentionné</dt><dd>@<%= roleName(mission.mentionRoleId) %></dd><% } %>
+          <dt>Salon</dt><dd><%= channelName(mission.channelId) %></dd>
+          <dt>Responsable</dt><dd><%- include('member', { id: mission.createdBy }) %></dd>
+          <% if (mission.closedBy) { %><dt>Clôturée par</dt><dd><%- include('member', { id: mission.closedBy }) %> · <%= fmt.dateTime(mission.closedAt) %></dd><% } %>
+          <% if (mission.cancelReason) { %><dt>Raison</dt><dd><%= mission.cancelReason %></dd><% } %>
+          <% if (kind === 'convoi' && mission.notes) { %><dt>Notes</dt><dd><%= mission.notes %></dd><% } %>
+        </dl>
+      </div>
+    </section>
+
+    <% if (kind === 'convoi' && canEdit) { %>
+      <section class="card">
+        <div class="card-header"><h2>🗓️ Reprogrammer</h2></div>
+        <form class="card-body form-grid" method="post" action="/convois/<%= mission._id %>/reschedule">
+          <%- include('csrf') %>
+          <div class="field span-all"><label for="scheduledAt">Date et heure</label><input class="input" type="datetime-local" id="scheduledAt" name="scheduledAt" value="<%= fmt.dtLocal(mission.scheduledAt) %>" required></div>
+          <div class="field span-all"><label for="notes">Notes</label><textarea class="input" id="notes" name="notes" maxlength="500"><%= mission.notes %></textarea></div>
+          <label class="check span-all"><input type="checkbox" name="notify" checked> Prévenir les agents sur Discord si la date change</label>
+          <div class="form-actions span-all"><button class="btn" type="submit">Enregistrer</button></div>
+        </form>
+        <% if (mission.reschedules?.length) { %>
+          <div class="card-footer small">
+            <strong>Historique</strong>
+            <% for (const r of mission.reschedules.slice().reverse()) { %>
+              <div class="muted"><%= fmt.dateTime(r.from) %> → <%= fmt.dateTime(r.to) %> · <%= name(r.by) %></div>
+            <% } %>
+          </div>
+        <% } %>
+      </section>
+    <% } %>
+
+    <% if (canStatus) { %>
+      <section class="card">
+        <div class="card-header"><h2>Statut</h2></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+          <% if (mission.status === 'OPEN') { %>
+            <form method="post" action="<%= base %>/<%= mission._id %>/status" data-confirm="Marquer comme terminée ?">
+              <%- include('csrf') %><input type="hidden" name="status" value="FINISHED">
+              <button class="btn" type="submit">🏁 Terminer</button>
+            </form>
+            <form class="form-grid" method="post" action="<%= base %>/<%= mission._id %>/status" data-confirm="Annuler cette mission ?">
+              <%- include('csrf') %><input type="hidden" name="status" value="CANCELLED">
+              <div class="field span-all"><label for="reason">Raison de l'annulation</label><input class="input" id="reason" name="reason" maxlength="300"></div>
+              <label class="check span-all"><input type="checkbox" name="notify" checked> Prévenir les agents disponibles et dispatchés</label>
+              <div class="form-actions span-all"><button class="btn danger" type="submit">✖️ Annuler la mission</button></div>
+            </form>
+          <% } else { %>
+            <form method="post" action="<%= base %>/<%= mission._id %>/status" data-confirm="Rouvrir cette mission ?">
+              <%- include('csrf') %><input type="hidden" name="status" value="OPEN">
+              <button class="btn" type="submit">↩️ Rouvrir</button>
+            </form>
+          <% } %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+</div>

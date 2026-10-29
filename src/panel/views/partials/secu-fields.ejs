@@ -1,0 +1,33 @@
+<%# Champs communs (création / édition) d'une sécurisation. Paramètres : values, channels, withChannel %>
+<div class="field span-2"><label for="lieu">Lieu</label><input class="input" id="lieu" name="lieu" value="<%= values.lieu || '' %>" maxlength="100" required placeholder="Casino Diamond"></div>
+<div class="field">
+  <label for="tenue">Tenue</label>
+  <select class="input" id="tenue" name="tenue"><% for (const [k, v] of Object.entries(SECU_TENUES)) { %><option value="<%= k %>" <%= values.tenue === k ? 'selected' : '' %>><%= v %></option><% } %></select>
+</div>
+<div class="field">
+  <label for="radio">Radio</label>
+  <select class="input" id="radio" name="radio"><% for (const [k, v] of Object.entries(SECU_RADIOS)) { %><option value="<%= k %>" <%= values.radio === k ? 'selected' : '' %>><%= v %></option><% } %></select>
+</div>
+<div class="field">
+  <label for="vehicule">Véhicule</label>
+  <select class="input" id="vehicule" name="vehicule"><% for (const [k, v] of Object.entries(SECU_VEHICULES)) { %><option value="<%= k %>" <%= values.vehicule === k ? 'selected' : '' %>><%= v %></option><% } %></select>
+</div>
+<div class="field" data-show-when="vehicule=custom"><label for="vehiculeCustom">Véhicule personnalisé</label><input class="input" id="vehiculeCustom" name="vehiculeCustom" value="<%= values.vehiculeCustom || '' %>" maxlength="100"></div>
+<div class="field">
+  <label for="briefOffset">Brief TEAM 1</label>
+  <select class="input" id="briefOffset" name="briefOffset"><% for (const m of [0, 15, 30]) { %><option value="<%= m %>" <%= Number(values.briefOffset) === m ? 'selected' : '' %>><%= m ? `${m} min avant` : 'Au début du créneau' %></option><% } %></select>
+</div>
+<% if (withChannel) { %>
+<div class="field">
+  <label for="channelId">Salon des inscriptions</label>
+  <select class="input" id="channelId" name="channelId" required><option value="">Choisir…</option><% for (const c of channels) { %><option value="<%= c.id %>" <%= values.channelId === c.id ? 'selected' : '' %>>#<%= c.name %></option><% } %></select>
+</div>
+<% } %>
+<div class="field">
+  <label for="infoChannelId">Salon d'information</label>
+  <select class="input" id="infoChannelId" name="infoChannelId"><option value="">Aucun</option><% for (const c of channels) { %><option value="<%= c.id %>" <%= values.infoChannelId === c.id ? 'selected' : '' %>>#<%= c.name %></option><% } %></select>
+</div>
+<div class="field">
+  <label for="pdsChannelId">Salon des rappels (PDS)</label>
+  <select class="input" id="pdsChannelId" name="pdsChannelId"><option value="">Salon des inscriptions</option><% for (const c of channels) { %><option value="<%= c.id %>" <%= values.pdsChannelId === c.id ? 'selected' : '' %>>#<%= c.name %></option><% } %></select>
+</div>

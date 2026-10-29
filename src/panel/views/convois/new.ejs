@@ -1,0 +1,27 @@
+<%- include('../partials/header') %>
+
+<div class="page-head"><div class="breadcrumb"><a href="/convois">Convois</a> · Nouveau</div></div>
+
+<section class="card" style="max-width:640px">
+  <div class="card-header"><h2>🚛 Nouvel ordre de mission</h2></div>
+  <form class="card-body form-grid" method="post" action="/convois/nouveau">
+    <%- include('../partials/csrf') %>
+    <% if (typeof error !== 'undefined' && error) { %><div class="alert error span-all"><%= error %></div><% } %>
+    <div class="field"><label for="scheduledAt">Date et heure</label><input class="input" type="datetime-local" id="scheduledAt" name="scheduledAt" value="<%= values.scheduledAt || '' %>" required></div>
+    <div class="field">
+      <label for="channelId">Salon de publication</label>
+      <select class="input" id="channelId" name="channelId" required>
+        <option value="">Choisir…</option>
+        <% for (const c of channels) { %><option value="<%= c.id %>" <%= values.channelId === c.id ? 'selected' : '' %>>#<%= c.name %></option><% } %>
+      </select>
+      <% if (!channels.length) { %><span class="hint">Aucun salon synchronisé : le bot doit être en ligne.</span><% } %>
+    </div>
+    <div class="field span-all"><label for="notes">Notes (optionnel)</label><textarea class="input" id="notes" name="notes" maxlength="500"><%= values.notes || '' %></textarea></div>
+    <div class="form-actions span-all">
+      <button class="btn primary" type="submit">Créer et publier</button>
+      <span class="muted small">Le bot publie le message avec les réactions ✅ / ❌.</span>
+    </div>
+  </form>
+</section>
+
+<%- include('../partials/footer') %>

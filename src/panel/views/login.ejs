@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion · Bobcat Panel</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+  <script src="/static/js/theme.js"></script>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="card auth-card">
+    <span class="brand-mark">🐾</span>
+    <div>
+      <h1 style="font-size:22px">Bobcat Panel</h1>
+      <p class="muted" style="margin:6px 0 0">Gestion des patrouilles, missions et dispatchs de <%= BRAND_NAME %>.</p>
+    </div>
+    <% const errors = { state: 'La connexion a expiré, réessaie.', token: 'Discord a refusé la connexion (vérifie la configuration OAuth2).', user: 'Impossible de récupérer ton profil Discord.', oauth: "La connexion Discord n'est pas configurée (DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET)." }; %>
+    <% if (error) { %><div class="alert error" style="text-align:left"><%= errors[error] || 'Erreur de connexion.' %></div><% } %>
+    <% if (oauth) { %>
+      <a class="btn discord" href="/auth/discord">Se connecter avec Discord</a>
+    <% } else { %>
+      <div class="alert warning" style="text-align:left">La connexion Discord n'est pas encore configurée. Renseigne <code>DISCORD_CLIENT_ID</code> et <code>DISCORD_CLIENT_SECRET</code> dans le fichier <code>.env</code>.</div>
+    <% } %>
+    <% if (devLogin) { %>
+      <a class="btn" href="/auth/dev">Connexion de développement</a>
+      <p class="muted small" style="margin:0">Mode développement actif (<code>PANEL_DEV_LOGIN</code>). À désactiver en production.</p>
+    <% } %>
+    <p class="muted small" style="margin:0">L'accès est réservé aux super-users et aux rôles autorisés du serveur.</p>
+  </div>
+</div>
+</body>
+</html>

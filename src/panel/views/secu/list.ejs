@@ -1,0 +1,41 @@
+<%- include('../partials/header') %>
+
+<div class="page-head">
+  <div class="breadcrumb">Sécurisations · <%= total %> résultat(s)</div>
+  <div class="actions">
+    <% for (const s of [['', 'Toutes'], ['OPEN', 'Ouvertes'], ['FINISHED', 'Terminées'], ['CANCELLED', 'Annulées']]) { %>
+      <a class="btn sm <%= (query.status || '') === s[0] ? 'primary' : 'ghost' %>" href="<%= qs('/secu', { status: s[0] }) %>"><%= s[1] %></a>
+    <% } %>
+    <% if (perms.super || perms.secu) { %><a class="btn primary" href="/secu/nouveau">＋ Nouvelle sécurisation</a><% } %>
+  </div>
+</div>
+
+<section class="card">
+  <% if (!missions.length) { %>
+    <div class="empty"><span class="big">🔒</span>Aucune sécurisation. Crée-en une ici ou avec <code>/secu</code> sur Discord.</div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Lieu</th><th>Dates</th><th class="num">Créneaux</th><th>Remplissage</th><th>Responsable</th><th>Statut</th></tr></thead>
+        <tbody>
+          <% for (const m of missions) { const pct = m.stats.capacity ? Math.round((m.stats.filled / m.stats.capacity) * 100) : 0; %>
+            <tr>
+              <td><a class="row-link" href="/secu/<%= m._id %>"><%= m.lieu %></a><% if (!m.published) { %> <span class="badge warn">Non publiée</span><% } %></td>
+              <td class="nowrap"><%= m.days.length ? `${fmt.day(m.days[0].date)}${m.days.length > 1 ? ` → ${fmt.day(m.days[m.days.length - 1].date)}` : ''}` : '—' %></td>
+              <td class="num"><%= m.stats.slots %></td>
+              <td style="min-width:160px">
+                <div class="small secondary num"><%= m.stats.filled %> / <%= m.stats.capacity %> places</div>
+                <div class="meter <%= pct >= 100 ? '' : pct >= 50 ? 'warn' : 'danger' %>"><span style="width:<%= pct %>%"></span></div>
+              </td>
+              <td><%- include('../partials/member', { id: m.createdBy }) %></td>
+              <td><%- include('../partials/status', { status: m.status }) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <%- include('../partials/pagination', { base: '/secu' }) %>
+</section>
+
+<%- include('../partials/footer') %>

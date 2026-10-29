@@ -1,0 +1,37 @@
+<%- include('../partials/header') %>
+
+<div class="page-head">
+  <div class="breadcrumb">Prises de service · <%= total %> résultat(s)</div>
+  <div class="actions">
+    <% for (const s of [['', 'Toutes'], ['OPEN', 'En service'], ['FINISHED', 'Terminées']]) { %>
+      <a class="btn sm <%= (query.status || '') === s[0] ? 'primary' : 'ghost' %>" href="<%= qs('/pds', { status: s[0] }) %>"><%= s[1] %></a>
+    <% } %>
+  </div>
+</div>
+
+<section class="card">
+  <% if (!sessions.length) { %>
+    <div class="empty"><span class="big">📋</span>Aucune PDS. Elles se lancent sur Discord avec <code>/pds</code> pendant une mission ATM.</div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Véhicule</th><th>Mission ATM</th><th>Horaires</th><th class="num">ATM</th><th>Ouverte par</th><th>Statut</th></tr></thead>
+        <tbody>
+          <% for (const s of sessions) { %>
+            <tr>
+              <td><a class="row-link" href="/pds/<%= s._id %>"><%= s.plate %></a></td>
+              <td><% if (s.atmMissionId) { %><a class="link" href="/atm/<%= s.atmMissionId._id %>"><%= fmt.day(s.atmMissionId.scheduledAt) %> <%= fmt.hm(s.atmMissionId.scheduledAt) %></a><% } else { %><span class="muted">—</span><% } %></td>
+              <td class="num nowrap"><%= fmt.day(s.startAt) %> <%= fmt.hm(s.startAt) %> → <%= s.endAt ? fmt.hm(s.endAt) : '…' %></td>
+              <td class="num"><%= s.atms.length %></td>
+              <td><%- include('../partials/member', { id: s.createdBy }) %></td>
+              <td><%- include('../partials/status', { status: s.status }) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <%- include('../partials/pagination', { base: '/pds' }) %>
+</section>
+
+<%- include('../partials/footer') %>

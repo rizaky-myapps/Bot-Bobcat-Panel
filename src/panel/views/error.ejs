@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · Bobcat Panel</title>
+  <script src="/static/js/theme.js"></script>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="card auth-card">
+    <span class="brand-mark">🐾</span>
+    <h1 style="font-size:20px"><%= title %></h1>
+    <p class="secondary" style="margin:0"><%= message %></p>
+    <div class="form-actions" style="justify-content:center">
+      <a class="btn" href="/">Retour à l'accueil</a>
+      <% if (typeof showLogout !== 'undefined' && showLogout) { %>
+        <form method="post" action="/logout" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn ghost" type="submit">Changer de compte</button></form>
+      <% } %>
+    </div>
+  </div>
+</div>
+</body>
+</html>

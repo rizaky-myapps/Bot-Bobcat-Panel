@@ -1,0 +1,68 @@
+<%- include('../partials/header') %>
+<% const canEdit = perms.super; %>
+
+<div class="page-head">
+  <div class="breadcrumb">Patrouilles · <%= places.length %> lieu(x)</div>
+  <% if (!canEdit) { %><span class="muted small">La gestion des lieux est réservée aux super-users.</span><% } %>
+</div>
+
+<% if (canEdit) { %>
+<section class="card">
+  <div class="card-header"><h2>Nouveau lieu</h2></div>
+  <form class="card-body inline-form" method="post" action="/lieux">
+    <%- include('../partials/csrf') %>
+    <div class="field" style="flex:2 1 200px"><label for="name">Nom</label><input class="input" id="name" name="name" maxlength="60" required placeholder="Superette"></div>
+    <div class="field" style="flex:0 1 120px"><label for="emoji">Emoji</label><input class="input" id="emoji" name="emoji" placeholder="🏪 ou <:nom:id>"></div>
+    <div class="field" style="flex:0 1 160px"><label for="maxHoursPerWeek">Heures max / semaine</label><input class="input" type="number" min="0" max="168" step="0.5" id="maxHoursPerWeek" name="maxHoursPerWeek" value="0"><span class="hint">0 = illimité</span></div>
+    <button class="btn primary" type="submit">Ajouter</button>
+  </form>
+</section>
+<% } %>
+
+<section class="card">
+  <% if (!places.length) { %>
+    <div class="empty"><span class="big">📍</span>Aucun lieu configuré.</div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Emoji</th><th>Nom</th><th>Limite / semaine</th><th>Cette semaine</th><th>Actif</th><% if (canEdit) { %><th></th><% } %></tr></thead>
+        <tbody>
+          <% for (const p of places) { const u = usage.get(String(p._id)); const formId = `place-${p._id}`; %>
+            <tr>
+              <% if (canEdit) { %>
+                <td style="width:110px"><input form="<%= formId %>" class="input sm" name="emoji" value="<%= p.emoji %>" aria-label="Emoji"></td>
+                <td><input form="<%= formId %>" class="input sm" name="name" value="<%= p.name %>" maxlength="60" required aria-label="Nom"></td>
+                <td style="width:150px"><input form="<%= formId %>" class="input sm" type="number" min="0" max="168" step="0.5" name="maxHoursPerWeek" value="<%= p.maxHoursPerWeek %>" aria-label="Heures max"></td>
+              <% } else { %>
+                <td><%- include('../partials/emoji', { value: p.emoji }) %></td>
+                <td><strong><%= p.name %></strong></td>
+                <td><%= p.maxHoursPerWeek ? `${p.maxHoursPerWeek} h` : 'Illimité' %></td>
+              <% } %>
+              <td style="min-width:160px">
+                <% if (u) { %>
+                  <div class="small secondary num"><%= fmt.duration(u.usedMinutes) %><%= u.unlimited ? '' : ` / ${fmt.duration(u.maxMinutes)}` %></div>
+                  <% if (!u.unlimited) { %><div class="meter <%= u.reached ? 'danger' : u.percent >= 75 ? 'warn' : '' %>"><span style="width:<%= u.percent %>%"></span></div><% } %>
+                <% } else { %><span class="muted small">Inactif</span><% } %>
+              </td>
+              <td>
+                <% if (canEdit) { %><label class="check"><input form="<%= formId %>" type="checkbox" name="active" <%= p.active ? 'checked' : '' %>> <span class="small">Actif</span></label>
+                <% } else { %><%- p.active ? '<span class="badge ok">Actif</span>' : '<span class="badge">Inactif</span>' %><% } %>
+              </td>
+              <% if (canEdit) { %>
+                <td class="nowrap">
+                  <form id="<%= formId %>" method="post" action="/lieux/<%= p._id %>" class="inline">
+                    <%- include('../partials/csrf') %>
+                    <button class="btn sm" type="submit" name="action" value="save">Enregistrer</button>
+                    <button class="btn sm ghost" type="submit" name="action" value="delete" formnovalidate data-confirm="Supprimer le lieu « <%= p.name %> » ? L'historique des patrouilles est conservé." aria-label="Supprimer">🗑️</button>
+                  </form>
+                </td>
+              <% } %>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include('../partials/footer') %>

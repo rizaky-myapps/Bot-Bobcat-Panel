@@ -1,0 +1,135 @@
+<%- include('partials/header') %>
+
+<% if (!bot.online) { %>
+  <div class="alert warning">⚠️ Le bot ne semble pas connecté<% if (bot.heartbeat?.updatedAt) { %> (dernier signal <%= fmt.relative(bot.heartbeat.updatedAt) %>)<% } %>. Les modifications faites ici seront appliquées sur Discord à son retour.</div>
+<% } %>
+<% if (bot.failed) { %>
+  <div class="alert error"><%= bot.failed %> action(s) du panel ont échoué côté bot ces dernières 24 h. Consulte les logs du bot.</div>
+<% } %>
+
+<section class="kpis" aria-label="Indicateurs">
+  <a class="card kpi" href="/patrouilles?status=OPEN">
+    <span class="kpi-label">🛡️ Patrouilles en cours</span>
+    <span class="kpi-value"><%= openPatrols.length %></span>
+    <span class="kpi-sub"><%= openPatrols.reduce((n, p) => n + p.places.filter((v) => !v.leftAt).length, 0) %> lieu(x) occupé(s)</span>
+  </a>
+  <a class="card kpi" href="/temps">
+    <span class="kpi-label">⏱️ Temps patrouillé (sem. <%= board.week %>)</span>
+    <span class="kpi-value"><%= fmt.duration(board.totalMinutes) %></span>
+    <span class="kpi-sub"><%= board.reached.length %> lieu(x) à la limite</span>
+  </a>
+  <a class="card kpi" href="/atm?status=OPEN">
+    <span class="kpi-label">📦 Missions ATM ouvertes</span>
+    <span class="kpi-value"><%= atms.length %></span>
+    <span class="kpi-sub"><%= pds.length %> PDS en service</span>
+  </a>
+  <a class="card kpi" href="/convois?status=OPEN">
+    <span class="kpi-label">🚛 Convois prévus</span>
+    <span class="kpi-value"><%= convois.length %></span>
+    <span class="kpi-sub"><%= convois[0] ? `Prochain : ${fmt.day(convois[0].scheduledAt)} ${fmt.hm(convois[0].scheduledAt)}` : 'Aucun convoi ouvert' %></span>
+  </a>
+  <a class="card kpi" href="/secu?status=OPEN">
+    <span class="kpi-label">🔒 Sécurisations ouvertes</span>
+    <span class="kpi-value"><%= secus.length %></span>
+    <span class="kpi-sub"><%= secuFill.capacity ? `${secuFill.filled}/${secuFill.capacity} places pourvues` : 'Aucun créneau à venir' %></span>
+  </a>
+  <div class="card kpi">
+    <span class="kpi-label"><span class="status-dot <%= bot.online ? 'ok' : 'danger' %>"></span> Bot Discord</span>
+    <span class="kpi-value" style="font-size:20px"><%= bot.online ? 'En ligne' : 'Hors ligne' %></span>
+    <span class="kpi-sub"><%= bot.pending ? `${bot.pending} action(s) en attente` : (bot.heartbeat?.tag || 'Synchronisé') %></span>
+  </div>
+</section>
+
+<div class="grid grid-main">
+  <div class="grid">
+    <section class="card">
+      <div class="card-header"><h2>Patrouilles en cours</h2><div class="actions"><a class="btn sm ghost" href="/patrouilles">Historique →</a></div></div>
+      <% if (!openPatrols.length) { %>
+        <div class="empty"><span class="big">🛡️</span>Aucune patrouille en cours. Elles se lancent sur Discord avec <code>/patrouille</code>.</div>
+      <% } else { %>
+        <ul class="list">
+          <% for (const p of openPatrols) { const here = p.places.filter((v) => !v.leftAt); %>
+            <li>
+              <a class="list-item" href="/patrouilles/<%= p._id %>">
+                <span class="item-icon">🛡️</span>
+                <span class="grow">
+                  <span class="title"><%= p.unit %></span>
+                  <span class="meta">Depuis <%= fmt.hm(p.startAt) %> (<%= fmt.between(p.startAt) %>) · <%= p.places.length %> lieu(x) visité(s)<%= here.length ? ` · sur place : ${here.map((v) => v.name).join(', ')}` : '' %></span>
+                </span>
+                <% if (new Date() - new Date(p.lastActivityAt) > 45 * 60000) { %><span class="badge warn">Inactive</span><% } else { %><span class="badge ok">Active</span><% } %>
+              </a>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </section>
+
+    <section class="card">
+      <div class="card-header"><h2>À venir (14 jours)</h2></div>
+      <% if (!upcoming.length) { %>
+        <div class="empty"><span class="big">🗓️</span>Rien de prévu pour le moment.</div>
+      <% } else { %>
+        <ul class="list">
+          <% for (const u of upcoming) { %>
+            <li>
+              <a class="list-item" href="<%= u.href %>">
+                <span class="item-icon"><%= u.icon %></span>
+                <span class="grow">
+                  <span class="title"><%= u.title %></span>
+                  <span class="meta"><%= fmt.day(u.at) %> à <%= fmt.hm(u.at) %> · <%= fmt.relative(u.at) %></span>
+                </span>
+                <% if (u.kind === 'Sécu') { %>
+                  <span class="badge <%= u.filled >= u.capacity ? 'ok' : 'warn' %>"><%= u.filled %>/<%= u.capacity %> places</span>
+                <% } else { %>
+                  <span class="badge info plain"><%= u.m.availability.filter((a) => a.status === 'AVAILABLE').length %> dispo · <%= u.m.participants.length %> dispatché(s)</span>
+                <% } %>
+              </a>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-header"><h2>Temps de la semaine</h2><div class="actions"><a class="btn sm ghost" href="/temps">Détail →</a></div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+        <% if (!board.rows.length) { %>
+          <span class="muted">Aucun lieu configuré. <a class="link" href="/lieux">Ajouter un lieu</a></span>
+        <% } %>
+        <% for (const r of board.rows.slice(0, 8)) { %>
+          <div>
+            <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px">
+              <span><%- include('partials/emoji', { value: r.emoji }) %> <%= r.name %></span>
+              <span class="secondary small num"><%= fmt.duration(r.usedMinutes) %><%= r.unlimited ? '' : ` / ${fmt.duration(r.maxMinutes)}` %></span>
+            </div>
+            <% if (!r.unlimited) { %>
+              <div class="meter <%= r.reached ? 'danger' : r.percent >= 75 ? 'warn' : '' %>" role="meter" aria-valuenow="<%= r.percent %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= r.name %>"><span style="width:<%= r.percent %>%"></span></div>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header"><h2>Activité récente</h2><div class="actions"><a class="btn sm ghost" href="/journal">Journal →</a></div></div>
+      <% if (!recent.length) { %>
+        <div class="empty">Aucune activité enregistrée.</div>
+      <% } else { %>
+        <ul class="list">
+          <% for (const r of recent) { %>
+            <li class="list-item">
+              <span class="grow">
+                <span class="title" style="white-space:normal"><%= r.summary || r.action %></span>
+                <span class="meta"><%= r.actorId ? name(r.actorId) : 'Système' %> · <%= r.source === 'panel' ? 'panel' : 'Discord' %> · <%= fmt.relative(r.createdAt) %></span>
+              </span>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

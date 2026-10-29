@@ -1,0 +1,58 @@
+<%- include('partials/header') %>
+<% const roles = (guild?.roles || []).filter((r) => !r.managed); %>
+
+<% if (!guild) { %>
+  <div class="alert warning">Le serveur n'est pas encore synchronisé : démarre le bot pour récupérer la liste des rôles.</div>
+<% } %>
+
+<form class="grid" method="post" action="/parametres">
+  <%- include('partials/csrf') %>
+
+  <section class="card">
+    <div class="card-header"><h2>👑 Super-users</h2><span class="muted small">Accès complet au bot et au panel</span></div>
+    <div class="card-body grid grid-2">
+      <div class="field">
+        <span class="label">Rôles super-user</span>
+        <div class="check-list">
+          <% for (const r of roles) { %><label class="check"><input type="checkbox" name="superUserRoleIds" value="<%= r.id %>" <%= (cfg.superUserRoleIds || []).includes(r.id) ? 'checked' : '' %>><span class="role-dot" style="background:<%= colorHex(r.color) %>"></span><%= r.name %></label><% } %>
+          <% if (!roles.length) { %><span class="muted small">Aucun rôle synchronisé.</span><% } %>
+        </div>
+      </div>
+      <div class="field">
+        <label for="superUserIds">Utilisateurs super-user (IDs Discord)</label>
+        <textarea class="input" id="superUserIds" name="superUserIds" placeholder="123456789012345678, …"><%= (cfg.superUserIds || []).join(', ') %></textarea>
+        <% if ((cfg.superUserIds || []).length) { %><div class="chips"><% for (const id of cfg.superUserIds) { %><%- include('partials/member', { id }) %><% } %></div><% } %>
+        <span class="hint">Toujours super-users (fichier .env) : <% if (!envSuperUserIds.length && !envSuperRoleIds.length) { %>aucun<% } %><% for (const id of envSuperUserIds) { %> <%- include('partials/member', { id }) %><% } %><% for (const id of envSuperRoleIds) { %> <span class="chip text">@<%= roleName(id) %></span><% } %> · ainsi que le propriétaire du serveur.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header"><h2>🔐 Permissions par rôle</h2><span class="muted small">Aucun rôle coché = super-users uniquement (sauf « Agent » : tout le monde)</span></div>
+    <div class="card-body grid grid-2">
+      <% for (const key of keys) { %>
+        <div class="field">
+          <span class="label"><%= PERMISSIONS[key] %> <code class="muted">(<%= key %>)</code></span>
+          <div class="check-list">
+            <% for (const r of roles) { %><label class="check"><input type="checkbox" name="perm[<%= key %>]" value="<%= r.id %>" <%= (cfg.permissions?.[key] || []).includes(r.id) ? 'checked' : '' %>><span class="role-dot" style="background:<%= colorHex(r.color) %>"></span><%= r.name %></label><% } %>
+            <% if (!roles.length) { %><span class="muted small">Aucun rôle synchronisé.</span><% } %>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header"><h2>⚙️ Réglages</h2></div>
+    <div class="card-body form-grid">
+      <div class="field">
+        <label for="patrolIdleMinutes">Alerte d'inactivité des patrouilles (minutes)</label>
+        <input class="input" type="number" min="10" max="240" id="patrolIdleMinutes" name="patrolIdleMinutes" value="<%= cfg.settings?.patrolIdleMinutes || 45 %>">
+      </div>
+    </div>
+  </section>
+
+  <div class="form-actions"><button class="btn primary" type="submit">Enregistrer les paramètres</button></div>
+</form>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,82 @@
+<%- include('../partials/header') %>
+
+<div class="page-head">
+  <div class="breadcrumb">Patrouilles · <%= total %> résultat(s)</div>
+  <div class="actions">
+    <a class="btn" href="<%= qs('/patrouilles.csv', { ...query, page: undefined }) %>">⬇️ Export CSV</a>
+  </div>
+</div>
+
+<form class="card card-body filters" method="get" action="/patrouilles">
+  <div class="field grow">
+    <label for="q">Recherche</label>
+    <input class="input" id="q" name="q" value="<%= query.q || '' %>" placeholder="Unité, matricule…">
+  </div>
+  <div class="field">
+    <label for="status">Statut</label>
+    <select class="input" id="status" name="status">
+      <option value="">Tous</option>
+      <option value="OPEN" <%= query.status === 'OPEN' ? 'selected' : '' %>>En cours</option>
+      <option value="FINISHED" <%= query.status === 'FINISHED' ? 'selected' : '' %>>Terminées</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="lieu">Lieu</label>
+    <select class="input" id="lieu" name="lieu">
+      <option value="">Tous</option>
+      <% for (const p of places) { %><option value="<%= p._id %>" <%= query.lieu === String(p._id) ? 'selected' : '' %>><%= p.name %></option><% } %>
+    </select>
+  </div>
+  <div class="field">
+    <label for="agent">Agent</label>
+    <select class="input" id="agent" name="agent">
+      <option value="">Tous</option>
+      <% for (const m of memberList) { %><option value="<%= m.userId %>" <%= query.agent === m.userId ? 'selected' : '' %>><%= m.displayName || m.username %></option><% } %>
+    </select>
+  </div>
+  <div class="field">
+    <label for="from">Du</label>
+    <input class="input" type="date" id="from" name="from" value="<%= query.from || '' %>">
+  </div>
+  <div class="field">
+    <label for="to">Au</label>
+    <input class="input" type="date" id="to" name="to" value="<%= query.to || '' %>">
+  </div>
+  <div class="form-actions">
+    <button class="btn primary" type="submit">Filtrer</button>
+    <a class="btn ghost" href="/patrouilles">Réinitialiser</a>
+  </div>
+</form>
+
+<section class="card">
+  <% if (!sessions.length) { %>
+    <div class="empty"><span class="big">🔎</span>Aucune patrouille ne correspond à ces critères.</div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Date</th><th>Unité</th><th>Agents</th><th>Horaires</th><th class="num">Durée</th><th>Lieux</th><th>Statut</th></tr>
+        </thead>
+        <tbody>
+          <% for (const s of sessions) { %>
+            <tr>
+              <td class="nowrap"><%= fmt.day(s.startAt) %></td>
+              <td><a class="row-link" href="/patrouilles/<%= s._id %>"><%= s.unit %></a><% if (s.version === 'v2') { %> <span class="badge plain">v2</span><% } %></td>
+              <td><%- include('../partials/agents', { labels: s.agents }) %></td>
+              <td class="nowrap num"><%= fmt.hm(s.startAt) %> → <%= s.endAt ? fmt.hm(s.endAt) : '…' %></td>
+              <td class="num nowrap"><%= s.endAt ? fmt.between(s.startAt, s.endAt) : fmt.between(s.startAt) %></td>
+              <td>
+                <% if (!s.places.length) { %><span class="muted">—</span><% } %>
+                <span class="chips"><% for (const v of s.places.slice(0, 6)) { %><span class="chip text" title="<%= v.name %>"><%- include('../partials/emoji', { value: v.emoji }) %> <%= v.name %></span><% } %><% if (s.places.length > 6) { %><span class="chip text">+<%= s.places.length - 6 %></span><% } %></span>
+              </td>
+              <td><%- include('../partials/status', { status: s.status }) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <%- include('../partials/pagination', { base: '/patrouilles' }) %>
+</section>
+
+<%- include('../partials/footer') %>
